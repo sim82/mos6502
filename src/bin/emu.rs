@@ -45,6 +45,22 @@ struct Registers {
     y: u8,
 }
 
+impl Registers {
+    fn adc(&mut self, oper: u8) {
+        let res = self.a as u16 + oper as u16 + self.sr.carry();
+
+        self.sr.update_nvzc(res);
+        // debug!(
+        //     "ADC: {:x} + {:x} = {:x} {}",
+        //     self.a, oper, res as u8, self.sr
+        // );
+        self.a = res as u8;
+    }
+    fn lda(&mut self, a: u8) {
+        self.sr.update_nvzc(a as u16);
+        self.a = a;
+    }
+}
 impl Default for Registers {
     fn default() -> Self {
         Registers {
@@ -133,95 +149,110 @@ struct Cpu {
 }
 
 impl Cpu {
+    fn load_indirect_zp(&self) -> u8 {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let oper = self.mem.load(zp_addr as u16);
+        oper
+    }
+    fn load_immediate(&self) -> u8 {
+        let oper = self.mem.load(self.reg.pc + 1);
+        oper
+    }
+    fn store_indirect_zp(&mut self, v: u8) {
+        self.mem.store(self.mem.load(self.reg.pc + 1) as u16, v);
+    }
     fn run(&mut self) {
-        let reg = &mut self.reg;
-        let mem = &mut self.mem;
+        // let reg = &mut self.reg;
+        // let mem = &mut self.mem;
         loop {
-            let opc = mem.load(reg.pc);
-            debug!("pc: {:x}, opc: {:x}, reg: {}", reg.pc, opc, reg);
+            let opc = self.mem.load(self.reg.pc);
+            debug!("pc: {:x}, opc: {:x}, reg: {}", self.reg.pc, opc, self.reg);
             let size = match opc {
                 0x18 => {
                     debug!("CLC");
-                    reg.sr.c = false;
+                    self.reg.sr.c = false;
                     // reg.sr = reg.sr & !FL_C;
                     1
                 }
                 0x20 => {
-                    let ret = reg.pc + 2;
-                    mem.store16(reg.sp as u16 + 0x100, ret);
-                    reg.sp -= 2;
-                    reg.pc = mem.load16(reg.pc + 1);
-                    debug!("JSR -> {:x} {:x}", reg.pc, ret);
+                    let ret = self.reg.pc + 2;
+                    self.mem.store16(self.reg.sp as u16 + 0x100, ret);
+                    self.reg.sp -= 2;
+                    self.reg.pc = self.mem.load16(self.reg.pc + 1);
+                    debug!("JSR -> {:x} {:x}", self.reg.pc, ret);
                     0
                 }
                 0x29 => {
-                    reg.a = reg.a & mem.load(reg.pc + 1);
+                    self.reg.a = self.reg.a & self.load_immediate();
                     2
                 }
                 0x60 => {
-                    reg.sp += 2;
-                    reg.pc = mem.load16(reg.sp as u16 + 0x100);
-                    debug!("RTS -> {:x}", reg.pc);
+                    self.reg.sp += 2;
+                    self.reg.pc = self.mem.load16(self.reg.sp as u16 + 0x100);
+                    debug!("RTS -> {:x}", self.reg.pc);
                     1
                 }
                 0x65 => {
                     debug!("ADC ZP");
-                    let zp_addr = mem.load(reg.pc + 1);
-                    let oper = mem.load(zp_addr as u16);
-                    let res = reg.a as u16 + oper as u16 + reg.sr.carry();
-                    reg.sr.update_nvzc(res);
-                    reg.a = res as u8;
+                    // let zp_addr = self.mem.load(reg.pc + 1);
+                    // let oper = self.mem.load(zp_addr as u16);
+                    self.reg.adc(self.load_indirect_zp());
                     2
                 }
                 0x69 => {
-                    let oper = mem.load(reg.pc + 1);
-                    let res = reg.a as u16 + oper as u16 + reg.sr.carry();
-
-                    reg.sr.update_nvzc(res);
-                    debug!("ADC: {:x} + {:x} = {:x} {}", reg.a, oper, res as u8, reg.sr);
-                    reg.a = res as u8;
+                    self.reg.adc(self.load_immediate());
                     2
                 }
                 0xa5 => {
-                    reg.a = mem.load(mem.load(reg.pc + 1) as u16);
-                    reg.sr.update_nvzc(reg.a as u16);
-                    debug!("LDA ZP {:x} {:x}", mem.load(reg.pc + 1), reg.a);
+                    // self.reg.a = self.load_indirect_zp();
+                    // self.reg.sr.update_nvzc(self.reg.a as u16);
+                    // debug!(
+                    //     "LDA ZP {:x} {:x}",
+                    //     self.mem.load(self.reg.pc + 1),
+                    //     self.reg.a
+                    // );
+                    self.reg.lda(self.load_indirect_zp());
                     2
                 }
                 0xa9 => {
-                    reg.a = mem.load(reg.pc + 1);
-                    reg.sr.update_nvzc(reg.a as u16);
-                    debug!("LDA. {}", reg);
+                    // self.reg.a = self.load_immediate();
+                    // self.reg.sr.update_nvzc(self.reg.a as u16);
+                    self.reg.lda(self.load_immediate());
+                    debug!("LDA. {}", self.reg);
                     2
                 }
                 0x85 => {
                     debug!("STA ZP");
-                    mem.store(mem.load(reg.pc + 1) as u16, reg.a);
+                    self.mem
+                        .store(self.mem.load(self.reg.pc + 1) as u16, self.reg.a);
                     2
                 }
                 0x8d => {
                     debug!("STA");
-                    mem.store(mem.load16(reg.pc + 1), reg.a);
+                    // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
+                    self.store_indirect_zp(self.reg.a);
                     3
                 }
                 0xaa => {
                     debug!("TAX");
-                    reg.x = reg.a;
-                    reg.sr.update_nvzc(reg.x as u16);
+                    self.reg.x = self.reg.a;
+                    self.reg.sr.update_nvzc(self.reg.x as u16);
                     1
                 }
                 0xe8 => {
                     debug!("INX");
-                    reg.x = reg.x.wrapping_add(1);
+                    let res = (self.reg.x as u16).wrapping_add(1);
+                    self.reg.sr.update_nvzc(res);
+                    self.reg.x = res as u8;
                     1
                 }
                 0 => {
                     println!("break on 00");
                     break;
                 }
-                _ => panic!("unhandled opcode: {:x} pc: {:x}", opc, reg.pc),
+                _ => panic!("unhandled opcode: {:x} pc: {:x}", opc, self.reg.pc),
             };
-            reg.pc += size as u16;
+            self.reg.pc += size as u16;
         }
     }
 }
