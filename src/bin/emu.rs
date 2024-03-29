@@ -57,8 +57,12 @@ impl Registers {
         self.a = res as u8;
     }
     fn lda(&mut self, a: u8) {
-        self.sr.update_nvzc(a as u16);
+        self.sr.update_nz(a);
         self.a = a;
+    }
+    fn and(&mut self, a: u8) {
+        self.a = self.a & a;
+        self.sr.update_nz(self.a);
     }
 }
 impl Default for Registers {
@@ -78,7 +82,7 @@ impl std::fmt::Display for Registers {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "A=${:x} X=${:x} Y={:x} SP=${:x} PC=${:x} SR={}",
+            "A=${:02x} X=${:02x} Y={:02x} SP=${:03x} PC=${:03x} SR={}",
             self.a, self.x, self.y, self.sp, self.pc, self.sr
         )
     }
@@ -106,9 +110,12 @@ impl Default for StatusRegister {
     }
 }
 impl StatusRegister {
+    fn update_nz(&mut self, v: u8) {
+        self.n = v >= 0x80;
+        self.z = v == 0x0;
+    }
     fn update_nvzc(&mut self, v: u16) {
-        self.n = v as u8 >= 0x80;
-        self.z = v as u8 == 0x0;
+        self.update_nz(v as u8);
         self.c = v > 0xff;
         self.v = self.c;
     }
@@ -150,24 +157,35 @@ struct Cpu {
 }
 
 impl Cpu {
-    fn load_indirect_zp(&self) -> u8 {
+    fn load_zeropage(&self) -> u8 {
         let zp_addr = self.mem.load(self.reg.pc + 1);
         let oper = self.mem.load(zp_addr as u16);
+        oper
+    }
+    fn load_absolute(&self) -> u8 {
+        let addr = self.mem.load16(self.reg.pc + 1);
+        let oper = self.mem.load(addr);
         oper
     }
     fn load_immediate(&self) -> u8 {
         let oper = self.mem.load(self.reg.pc + 1);
         oper
     }
-    fn store_indirect_zp(&mut self, v: u8) {
+    fn store_zeropage(&mut self, v: u8) {
         self.mem.store(self.mem.load(self.reg.pc + 1) as u16, v);
+    }
+    fn store_absolute(&mut self, v: u8) {
+        self.mem.store(self.mem.load16(self.reg.pc + 1), v);
     }
     fn run(&mut self) {
         // let reg = &mut self.reg;
         // let mem = &mut self.mem;
         loop {
             let opc = self.mem.load(self.reg.pc);
-            debug!("pc: {:x}, opc: {:x}, reg: {}", self.reg.pc, opc, self.reg);
+            debug!(
+                "pc: {:03x}, opc: {:02x}, reg: {}",
+                self.reg.pc, opc, self.reg
+            );
             let size = match opc {
                 0x18 => {
                     debug!("CLC");
@@ -183,9 +201,17 @@ impl Cpu {
                     debug!("JSR -> {:x} {:x}", self.reg.pc, ret);
                     0
                 }
-                0x29 => {
-                    self.reg.a = self.reg.a & self.load_immediate();
+                0x25 => {
+                    self.reg.and(self.load_zeropage());
                     2
+                }
+                0x29 => {
+                    self.reg.and(self.load_immediate());
+                    2
+                }
+                0x2d => {
+                    self.reg.and(self.load_absolute());
+                    3
                 }
                 0x60 => {
                     self.reg.sp += 2;
@@ -194,44 +220,40 @@ impl Cpu {
                     1
                 }
                 0x65 => {
-                    debug!("ADC ZP");
-                    // let zp_addr = self.mem.load(reg.pc + 1);
-                    // let oper = self.mem.load(zp_addr as u16);
-                    self.reg.adc(self.load_indirect_zp());
+                    self.reg.adc(self.load_zeropage());
                     2
                 }
                 0x69 => {
                     self.reg.adc(self.load_immediate());
                     2
                 }
+                0x6d => {
+                    self.reg.adc(self.load_absolute());
+                    3
+                }
                 0xa5 => {
-                    // self.reg.a = self.load_indirect_zp();
-                    // self.reg.sr.update_nvzc(self.reg.a as u16);
-                    // debug!(
-                    //     "LDA ZP {:x} {:x}",
-                    //     self.mem.load(self.reg.pc + 1),
-                    //     self.reg.a
-                    // );
-                    self.reg.lda(self.load_indirect_zp());
+                    self.reg.lda(self.load_zeropage());
                     2
                 }
                 0xa9 => {
-                    // self.reg.a = self.load_immediate();
-                    // self.reg.sr.update_nvzc(self.reg.a as u16);
                     self.reg.lda(self.load_immediate());
-                    debug!("LDA. {}", self.reg);
                     2
+                }
+                0xad => {
+                    self.reg.lda(self.load_absolute());
+                    3
                 }
                 0x85 => {
-                    debug!("STA ZP");
-                    self.mem
-                        .store(self.mem.load(self.reg.pc + 1) as u16, self.reg.a);
+                    // debug!("STA");
+                    // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
+                    self.store_zeropage(self.reg.a);
                     2
                 }
+
                 0x8d => {
                     debug!("STA");
                     // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
-                    self.store_indirect_zp(self.reg.a);
+                    self.store_absolute(self.reg.a);
                     3
                 }
                 0xaa => {
