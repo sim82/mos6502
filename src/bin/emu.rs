@@ -142,6 +142,7 @@ impl std::fmt::Display for StatusRegister {
         )
     }
 }
+
 #[derive(Default)]
 struct Cpu {
     reg: Registers,
