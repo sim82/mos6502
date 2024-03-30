@@ -1,4 +1,4 @@
-use crate::{mem::Memory, reg::Registers};
+use crate::{hexdump, mem::Memory, reg::Registers};
 use log::debug;
 
 #[derive(Default)]
@@ -14,8 +14,14 @@ impl Cpu {
             reg: Registers::default(),
         }
     }
+    pub fn set_pc(&mut self, pc: u16) {
+        self.reg.pc = pc;
+    }
     pub fn get_mem(&self) -> &Memory {
         &self.mem
+    }
+    pub fn dump_mem(&self) {
+        hexdump::dump(&self.get_mem().get());
     }
 }
 
@@ -48,6 +54,10 @@ impl Cpu {
                 self.reg.and(self.load_absolute());
                 3
             }
+            0x4c => {
+                self.reg.pc = self.mem.load16(self.reg.pc + 1);
+                0
+            }
             0x60 => {
                 self.reg.sp += 2;
                 self.reg.pc = self.mem.load16(self.reg.sp as u16 + 0x100);
@@ -78,17 +88,40 @@ impl Cpu {
                 self.store_absolute(self.reg.a);
                 3
             }
+            // LDA
+            0xa9 => {
+                self.reg.lda(self.load_immediate());
+                2
+            }
             0xa5 => {
                 self.reg.lda(self.load_zeropage());
                 2
             }
-            0xa9 => {
-                self.reg.lda(self.load_immediate());
+            0xb5 => {
+                self.reg.lda(self.load_zeropage_x());
                 2
             }
             0xad => {
                 self.reg.lda(self.load_absolute());
                 3
+            }
+            0xbd => {
+                self.reg.lda(self.load_absolute_x());
+                3
+            }
+            0xb9 => {
+                self.reg.lda(self.load_absolute_y());
+                3
+            }
+            // LDY
+            0xa4 => {
+                self.reg.ldy(self.load_zeropage());
+                2
+            }
+            // LDX
+            0xa6 => {
+                self.reg.ldx(self.load_zeropage());
+                2
             }
             0xaa => {
                 debug!("TAX");
@@ -119,8 +152,30 @@ impl Cpu {
         let oper = self.mem.load(zp_addr as u16);
         oper
     }
+    fn load_zeropage_x(&self) -> u8 {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let addr = zp_addr.wrapping_add(self.reg.x);
+        let oper = self.mem.load(addr as u16);
+        oper
+    }
     fn load_absolute(&self) -> u8 {
         let addr = self.mem.load16(self.reg.pc + 1);
+        let oper = self.mem.load(addr);
+        oper
+    }
+    fn load_absolute_x(&self) -> u8 {
+        let addr = self.mem.load16(self.reg.pc + 1);
+        let addr = addr
+            .wrapping_add(self.reg.x as u16)
+            .wrapping_add(self.reg.sr.carry());
+        let oper = self.mem.load(addr);
+        oper
+    }
+    fn load_absolute_y(&self) -> u8 {
+        let addr = self.mem.load16(self.reg.pc + 1);
+        let addr = addr
+            .wrapping_add(self.reg.y as u16)
+            .wrapping_add(self.reg.sr.carry());
         let oper = self.mem.load(addr);
         oper
     }

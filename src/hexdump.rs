@@ -1,5 +1,15 @@
 use std::io::BufRead;
 
+pub fn read_bin(name: &str, base_addr: usize) -> Vec<u8> {
+    let mut b: Vec<u8> = std::fs::read(name).unwrap();
+
+    let mut out = Vec::new();
+    out.resize(base_addr, 0u8);
+    out.append(&mut b);
+
+    // b.insertk
+    out
+}
 pub fn read() -> Vec<u8> {
     let mut out = Vec::new();
     for line in std::io::stdin().lock().lines() {

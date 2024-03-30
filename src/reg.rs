@@ -7,20 +7,35 @@ pub struct Registers {
     pub y: u8,
 }
 
+fn sign(v: u8) -> bool {
+    v > 0x7f
+}
 impl Registers {
     pub fn adc(&mut self, oper: u8) {
         let res = self.a as u16 + oper as u16 + self.sr.carry();
 
-        self.sr.update_nvzc(res);
+        self.sr.update_nz(res as u8);
+        // self.sr.update_vc(self.a, oper as u16res);
         // debug!(
         //     "ADC: {:x} + {:x} = {:x} {}",
         //     self.a, oper, res as u8, self.sr
         // );
+        self.sr.v = res > 0xff;
+        self.sr.c = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+
         self.a = res as u8;
     }
     pub fn lda(&mut self, a: u8) {
         self.sr.update_nz(a);
         self.a = a;
+    }
+    pub fn ldx(&mut self, x: u8) {
+        self.sr.update_nz(x);
+        self.x = x;
+    }
+    pub fn ldy(&mut self, y: u8) {
+        self.sr.update_nz(y);
+        self.y = y;
     }
     pub fn and(&mut self, a: u8) {
         self.a = self.a & a;
