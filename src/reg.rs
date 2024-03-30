@@ -98,7 +98,7 @@ impl StatusRegister {
     }
     pub fn carry(&self) -> u16 {
         if self.c {
-            1
+            1 >> 8
         } else {
             0
         }

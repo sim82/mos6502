@@ -76,16 +76,87 @@ impl Cpu {
                 self.reg.adc(self.load_absolute());
                 3
             }
+            // CMP
+            0xcd => {
+                //
+                let oper = self.load_absolute();
+                let cmp = self.reg.a.wrapping_sub(oper);
+
+                self.reg.sr.update_nz(cmp);
+                3
+            }
+            // BEQ
+            0xf0 => {
+                if self.reg.sr.z {
+                    let offs = self.mem.load(self.reg.pc + 1) as i8;
+                    debug!("BEQ -> {}", offs);
+                    self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());
+                    2
+                } else {
+                    debug!("BEQ no");
+                    2
+                }
+            }
+            // STA
             0x85 => {
                 // debug!("STA");
                 // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
                 self.store_zeropage(self.reg.a);
                 2
             }
+            0x95 => {
+                // debug!("STA");
+                // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
+                self.store_zeropage_x(self.reg.a);
+                2
+            }
             0x8d => {
                 debug!("STA");
                 // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
                 self.store_absolute(self.reg.a);
+                3
+            }
+            0x9d => {
+                self.store_absolute_x(self.reg.a);
+                3
+            }
+            0x99 => {
+                self.store_absolute_y(self.reg.a);
+                3
+            }
+            0x91 => {
+                self.store_indirect_y(self.reg.a);
+                2
+            }
+            0x81 => {
+                self.store_indirect_x(self.reg.a);
+                2
+            }
+            // STX
+            0x86 => {
+                self.store_zeropage(self.reg.x);
+                2
+            }
+            0x96 => {
+                self.store_zeropage_y(self.reg.x);
+                2
+            }
+            0x8e => {
+                self.store_absolute(self.reg.x);
+                3
+            }
+            // STY
+            0x84 => {
+                self.store_zeropage(self.reg.y);
+                2
+            }
+            0x94 => {
+                self.store_zeropage_x(self.reg.y);
+                2
+            }
+
+            0x8c => {
+                self.store_absolute(self.reg.y);
                 3
             }
             // LDA
@@ -113,15 +184,55 @@ impl Cpu {
                 self.reg.lda(self.load_absolute_y());
                 3
             }
+            0xb1 => {
+                self.reg.lda(self.load_indirect_y());
+                2
+            }
+            0xa1 => {
+                self.reg.lda(self.load_indirect_x());
+                2
+            }
             // LDY
+            0xa0 => {
+                self.reg.ldy(self.load_immediate());
+                2
+            }
             0xa4 => {
                 self.reg.ldy(self.load_zeropage());
                 2
             }
+            0xb4 => {
+                self.reg.ldy(self.load_zeropage_x());
+                2
+            }
+            0xac => {
+                self.reg.ldy(self.load_absolute());
+                3
+            }
+            0xbc => {
+                self.reg.ldy(self.load_absolute_x());
+                3
+            }
             // LDX
+            0xa2 => {
+                self.reg.ldx(self.load_immediate());
+                2
+            }
             0xa6 => {
                 self.reg.ldx(self.load_zeropage());
                 2
+            }
+            0xb6 => {
+                self.reg.ldx(self.load_zeropage_x());
+                2
+            }
+            0xae => {
+                self.reg.ldx(self.load_absolute());
+                3
+            }
+            0xbe => {
+                self.reg.ldx(self.load_absolute_y());
+                3
             }
             0xaa => {
                 debug!("TAX");
@@ -164,18 +275,20 @@ impl Cpu {
         oper
     }
     fn load_absolute_x(&self) -> u8 {
-        let addr = self.mem.load16(self.reg.pc + 1);
-        let addr = addr
-            .wrapping_add(self.reg.x as u16)
-            .wrapping_add(self.reg.sr.carry());
+        // let addr = self.mem.load16(self.reg.pc + 1);
+        // let addr = addr
+        //     .wrapping_add(self.reg.x as u16)
+        //     .wrapping_add(self.reg.sr.carry());
+        let addr = self.addr_absolute_x();
         let oper = self.mem.load(addr);
         oper
     }
     fn load_absolute_y(&self) -> u8 {
-        let addr = self.mem.load16(self.reg.pc + 1);
-        let addr = addr
-            .wrapping_add(self.reg.y as u16)
-            .wrapping_add(self.reg.sr.carry());
+        // let addr = self.mem.load16(self.reg.pc + 1);
+        // let addr = addr
+        //     .wrapping_add(self.reg.y as u16)
+        //     .wrapping_add(self.reg.sr.carry());
+        let addr = self.addr_absolute_y();
         let oper = self.mem.load(addr);
         oper
     }
@@ -183,11 +296,88 @@ impl Cpu {
         let oper = self.mem.load(self.reg.pc + 1);
         oper
     }
+    fn load_indirect_y(&self) -> u8 {
+        // let zp_addr = self.mem.load(self.reg.pc + 1);
+        // let eff_addr = self
+        //     .mem
+        //     .load16(zp_addr as u16)
+        //     .wrapping_add(self.reg.y as u16)
+        //     .wrapping_add(self.reg.sr.carry());
+        let eff_addr = self.addr_indirect_y();
+        self.mem.load(eff_addr)
+    }
+    fn load_indirect_x(&self) -> u8 {
+        // let zp_addr = self.mem.load(self.reg.pc + 1);
+        // let eff_addr = self
+        //     .mem
+        //     .load16(zp_addr as u16)
+        //     .wrapping_add(self.reg.y as u16)
+        //     .wrapping_add(self.reg.sr.carry());
+        let eff_addr = self.addr_indirect_x();
+        self.mem.load(eff_addr)
+    }
     fn store_zeropage(&mut self, v: u8) {
         self.mem.store(self.mem.load(self.reg.pc + 1) as u16, v);
     }
+    fn store_zeropage_x(&mut self, v: u8) {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let addr = zp_addr.wrapping_add(self.reg.x);
+        self.mem.store(addr as u16, v);
+    }
+    fn store_zeropage_y(&mut self, v: u8) {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let addr = zp_addr.wrapping_add(self.reg.y);
+        self.mem.store(addr as u16, v);
+    }
     fn store_absolute(&mut self, v: u8) {
         self.mem.store(self.mem.load16(self.reg.pc + 1), v);
+    }
+    fn store_absolute_x(&mut self, v: u8) {
+        let addr = self.addr_absolute_x();
+        self.mem.store(addr, v);
+    }
+
+    fn store_absolute_y(&mut self, v: u8) {
+        let addr = self.addr_absolute_y();
+        self.mem.store(addr, v);
+    }
+
+    fn store_indirect_y(&mut self, v: u8) {
+        let eff_addr = self.addr_indirect_y();
+        self.mem.store(eff_addr, v);
+    }
+
+    fn store_indirect_x(&mut self, v: u8) {
+        let zp_addr = self.addr_indirect_x();
+        self.mem.store(zp_addr as u16, v);
+    }
+
+    fn addr_absolute_x(&self) -> u16 {
+        let addr = self.mem.load16(self.reg.pc + 1);
+        let addr = addr
+            .wrapping_add(self.reg.x as u16)
+            .wrapping_add(self.reg.sr.carry());
+        addr
+    }
+    fn addr_absolute_y(&self) -> u16 {
+        let addr = self.mem.load16(self.reg.pc + 1);
+        let addr = addr
+            .wrapping_add(self.reg.y as u16)
+            .wrapping_add(self.reg.sr.carry());
+        addr
+    }
+    fn addr_indirect_y(&self) -> u16 {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let eff_addr = self
+            .mem
+            .load16(zp_addr as u16)
+            .wrapping_add(self.reg.y as u16)
+            .wrapping_add(self.reg.sr.carry());
+        eff_addr
+    }
+    fn addr_indirect_x(&self) -> u16 {
+        let zp_addr = self.mem.load(self.reg.pc + 1).wrapping_add(self.reg.x);
+        zp_addr as u16
     }
     pub fn run(&mut self) {
         // let reg = &mut self.reg;
