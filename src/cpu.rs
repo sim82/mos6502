@@ -1,10 +1,28 @@
-use crate::{hexdump, mem::Memory, reg::Registers};
-use log::debug;
+use std::collections::HashSet;
 
+use crate::{hexdump, mem::Memory, reg::Registers};
+use log::{debug, info};
+
+#[derive(Default)]
+pub struct Dbg {
+    pc_trace: HashSet<u16>,
+}
+
+impl Dbg {
+    pub fn step(&mut self, reg: &Registers, mem: &Memory) -> bool {
+        if !self.pc_trace.insert(reg.pc) {
+            info!("cycle");
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
 #[derive(Default)]
 pub struct Cpu {
     reg: Registers,
     mem: Memory,
+    dbg: Dbg,
 }
 
 impl Cpu {
@@ -12,6 +30,7 @@ impl Cpu {
         Self {
             mem,
             reg: Registers::default(),
+            dbg: Dbg::default(),
         }
     }
     pub fn set_pc(&mut self, pc: u16) {
@@ -80,6 +99,7 @@ impl Cpu {
             0xcd => {
                 //
                 let oper = self.load_absolute();
+                debug!("cmp: {:x} {:x}", oper, self.reg.a);
                 let cmp = self.reg.a.wrapping_sub(oper);
 
                 self.reg.sr.update_nz(cmp);
@@ -223,7 +243,7 @@ impl Cpu {
                 2
             }
             0xb6 => {
-                self.reg.ldx(self.load_zeropage_x());
+                self.reg.ldx(self.load_zeropage_y());
                 2
             }
             0xae => {
@@ -269,25 +289,23 @@ impl Cpu {
         let oper = self.mem.load(addr as u16);
         oper
     }
+    fn load_zeropage_y(&self) -> u8 {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let addr = zp_addr.wrapping_add(self.reg.y);
+        let oper = self.mem.load(addr as u16);
+        oper
+    }
     fn load_absolute(&self) -> u8 {
         let addr = self.mem.load16(self.reg.pc + 1);
         let oper = self.mem.load(addr);
         oper
     }
     fn load_absolute_x(&self) -> u8 {
-        // let addr = self.mem.load16(self.reg.pc + 1);
-        // let addr = addr
-        //     .wrapping_add(self.reg.x as u16)
-        //     .wrapping_add(self.reg.sr.carry());
         let addr = self.addr_absolute_x();
         let oper = self.mem.load(addr);
         oper
     }
     fn load_absolute_y(&self) -> u8 {
-        // let addr = self.mem.load16(self.reg.pc + 1);
-        // let addr = addr
-        //     .wrapping_add(self.reg.y as u16)
-        //     .wrapping_add(self.reg.sr.carry());
         let addr = self.addr_absolute_y();
         let oper = self.mem.load(addr);
         oper
@@ -297,22 +315,10 @@ impl Cpu {
         oper
     }
     fn load_indirect_y(&self) -> u8 {
-        // let zp_addr = self.mem.load(self.reg.pc + 1);
-        // let eff_addr = self
-        //     .mem
-        //     .load16(zp_addr as u16)
-        //     .wrapping_add(self.reg.y as u16)
-        //     .wrapping_add(self.reg.sr.carry());
         let eff_addr = self.addr_indirect_y();
         self.mem.load(eff_addr)
     }
     fn load_indirect_x(&self) -> u8 {
-        // let zp_addr = self.mem.load(self.reg.pc + 1);
-        // let eff_addr = self
-        //     .mem
-        //     .load16(zp_addr as u16)
-        //     .wrapping_add(self.reg.y as u16)
-        //     .wrapping_add(self.reg.sr.carry());
         let eff_addr = self.addr_indirect_x();
         self.mem.load(eff_addr)
     }
@@ -368,21 +374,29 @@ impl Cpu {
     }
     fn addr_indirect_y(&self) -> u16 {
         let zp_addr = self.mem.load(self.reg.pc + 1);
-        let eff_addr = self
-            .mem
-            .load16(zp_addr as u16)
+        let addr = self.mem.load16(zp_addr as u16);
+
+        debug!("zp_addr: {:x} {:x}", zp_addr, addr);
+        let eff_addr = addr
             .wrapping_add(self.reg.y as u16)
             .wrapping_add(self.reg.sr.carry());
         eff_addr
     }
     fn addr_indirect_x(&self) -> u16 {
-        let zp_addr = self.mem.load(self.reg.pc + 1).wrapping_add(self.reg.x);
-        zp_addr as u16
+        // let zp_addr = self.mem.load(self.reg.pc + 1).wrapping_add(self.reg.x);
+        // self.mem.load16(zp_addr as u16)
+        let ll = self.mem.load(self.reg.pc + 1);
+        let ll = ll.wrapping_add(self.reg.x);
+        self.mem.load16(ll as u16)
     }
     pub fn run(&mut self) {
         // let reg = &mut self.reg;
         // let mem = &mut self.mem;
         loop {
+            if self.dbg.step(&self.reg, &self.mem) {
+                info!("break");
+                break;
+            }
             let opc = self.mem.load(self.reg.pc);
             debug!(
                 "pc: {:03x}, opc: {:02x}, reg: {}",

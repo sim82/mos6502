@@ -18,17 +18,20 @@ impl Memory {
     }
     pub fn load(&self, addr: u16) -> u8 {
         if addr as usize >= self.ram.len() {
+            // debug!("LOAD (uninit): {:x} {:x}", addr, self.ram[addr as usize]);
             return 0;
         }
+        // debug!("LOAD: {:x} {:x}", addr, self.ram[addr as usize]);
         self.ram[addr as usize]
     }
     pub fn load16(&self, addr: u16) -> u16 {
         let l = self.load(addr) as u16;
         let h = self.load(addr + 1) as u16;
-        debug!("mem LOAD16: {:x} {:x}:{:x}", addr, h, l);
+        // debug!("mem LOAD16: {:x} {:x}:{:x}", addr, h, l);
         l + (h << 8)
     }
     pub fn store(&mut self, addr: u16, v: u8) {
+        debug!("mem STORE: {:x} {:x}", addr, v);
         self.ram[addr as usize] = v;
     }
     pub fn store16(&mut self, addr: u16, v: u16) {
