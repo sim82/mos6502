@@ -25,6 +25,14 @@ impl Registers {
 
         self.a = res as u8;
     }
+    pub fn ora(&mut self, oper: u8) {
+        self.a |= oper;
+        self.sr.update_nz(self.a);
+    }
+    pub fn eor(&mut self, oper: u8) {
+        self.a ^= oper;
+        self.sr.update_nz(self.a);
+    }
     pub fn lda(&mut self, a: u8) {
         self.sr.update_nz(a);
         self.a = a;

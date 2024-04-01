@@ -61,18 +61,6 @@ impl Cpu {
                 debug!("JSR -> {:x} {:x}", self.reg.pc, ret);
                 0
             }
-            0x25 => {
-                self.reg.and(self.load_zeropage());
-                2
-            }
-            0x29 => {
-                self.reg.and(self.load_immediate());
-                2
-            }
-            0x2d => {
-                self.reg.and(self.load_absolute());
-                3
-            }
             0x4c => {
                 self.reg.pc = self.mem.load16(self.reg.pc + 1);
                 0
@@ -94,6 +82,107 @@ impl Cpu {
             0x6d => {
                 self.reg.adc(self.load_absolute());
                 3
+            }
+            // AND
+            0x29 => {
+                self.reg.and(self.load_immediate());
+                2
+            }
+            0x25 => {
+                self.reg.and(self.load_zeropage());
+                2
+            }
+            0x35 => {
+                self.reg.and(self.load_zeropage_x());
+                2
+            }
+            0x2d => {
+                self.reg.and(self.load_absolute());
+                3
+            }
+            0x3d => {
+                self.reg.and(self.load_absolute_x());
+                3
+            }
+            0x39 => {
+                self.reg.and(self.load_absolute_y());
+                3
+            }
+            0x21 => {
+                self.reg.and(self.load_indirect_x());
+                2
+            }
+            0x31 => {
+                self.reg.and(self.load_indirect_y());
+                2
+            }
+            // ORA
+            0x09 => {
+                let oper = self.load_immediate();
+                self.reg.ora(oper);
+                2
+            }
+            0x05 => {
+                self.reg.ora(self.load_zeropage());
+                2
+            }
+            0x15 => {
+                self.reg.ora(self.load_zeropage_x());
+                2
+            }
+            0x0d => {
+                self.reg.ora(self.load_absolute());
+                3
+            }
+            0x1d => {
+                self.reg.ora(self.load_absolute_x());
+                3
+            }
+            0x19 => {
+                self.reg.ora(self.load_absolute_y());
+                3
+            }
+            0x01 => {
+                self.reg.ora(self.load_indirect_x());
+                2
+            }
+            0x11 => {
+                self.reg.ora(self.load_indirect_y());
+                2
+            }
+            // EOR
+            0x49 => {
+                let oper = self.load_immediate();
+                self.reg.eor(oper);
+                2
+            }
+            0x45 => {
+                self.reg.eor(self.load_zeropage());
+                2
+            }
+            0x55 => {
+                self.reg.eor(self.load_zeropage_x());
+                2
+            }
+            0x4d => {
+                self.reg.eor(self.load_absolute());
+                3
+            }
+            0x5d => {
+                self.reg.eor(self.load_absolute_x());
+                3
+            }
+            0x59 => {
+                self.reg.eor(self.load_absolute_y());
+                3
+            }
+            0x41 => {
+                self.reg.eor(self.load_indirect_x());
+                2
+            }
+            0x51 => {
+                self.reg.eor(self.load_indirect_y());
+                2
             }
             // CMP
             0xcd => {
