@@ -45,12 +45,12 @@ impl Cpu {
 }
 impl Cpu {
     fn dispatch_opcode(&mut self, opc: u8) -> Option<i32> {
-        let size = match opc {
+        let (_, size) = match opc {
             0x18 => {
                 debug!("CLC");
                 self.reg.sr.c = false;
                 // reg.sr = reg.sr & !FL_C;
-                1
+                ((), 1)
             }
             0x20 => {
                 let ret = self.reg.pc + 2;
@@ -58,63 +58,45 @@ impl Cpu {
                 self.reg.sp -= 2;
                 self.reg.pc = self.mem.load16(self.reg.pc + 1);
                 debug!("JSR -> {:x} {:x}", self.reg.pc, ret);
-                0
+                // 0
+                ((), 0)
             }
             0x4c => {
                 self.reg.pc = self.mem.load16(self.reg.pc + 1);
-                0
+                ((), 0)
             }
             0x60 => {
                 self.reg.sp += 2;
                 self.reg.pc = self.mem.load16(self.reg.sp as u16 + 0x100);
                 debug!("RTS -> {:x}", self.reg.pc);
-                1
+                ((), 1)
             }
-            0x65 => {
-                self.reg.adc(self.load_zeropage());
-                2
-            }
-            0x69 => {
-                self.reg.adc(self.load_immediate());
-                2
-            }
-            0x6d => {
-                self.reg.adc(self.load_absolute());
-                3
-            }
-            // AND
-            0x29 => {
-                self.reg.and(self.load_immediate());
-                2
-            }
-            0x25 => {
-                self.reg.and(self.load_zeropage());
-                2
-            }
-            0x35 => {
-                self.reg.and(self.load_zeropage_x());
-                2
-            }
-            0x2d => {
-                self.reg.and(self.load_absolute());
-                3
-            }
-            0x3d => {
-                self.reg.and(self.load_absolute_x());
-                3
-            }
-            0x39 => {
-                self.reg.and(self.load_absolute_y());
-                3
-            }
-            0x21 => {
-                self.reg.and(self.load_indirect_x());
-                2
-            }
-            0x31 => {
-                self.reg.and(self.load_indirect_y());
-                2
-            }
+            0x65 => (self.reg.adc(self.load_zeropage()), 2),
+            0x69 => (self.reg.adc(self.load_immediate()), 2),
+            0x6d => (self.reg.adc(self.load_absolute()), 3),
+            // AND  AND Memory with Accumulator
+
+            //      A AND M -> A                     N Z C I D V
+            //                                       + + - - - -
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     AND #oper     29    2     2
+            //      zeropage      AND oper      25    2     3
+            //      zeropage,X    AND oper,X    35    2     4
+            //      absolute      AND oper      2D    3     4
+            //      absolute,X    AND oper,X    3D    3     4*
+            //      absolute,Y    AND oper,Y    39    3     4*
+            //      (indirect,X)  AND (oper,X)  21    2     6
+            //      (indirect),Y  AND (oper),Y  31    2     5*
+            0x29 => (self.reg.and(self.load_immediate()), 2),
+            0x25 => (self.reg.and(self.load_zeropage()), 2),
+            0x35 => (self.reg.and(self.load_zeropage_x()), 2),
+            0x2d => (self.reg.and(self.load_absolute()), 3),
+            0x3d => (self.reg.and(self.load_absolute_x()), 3),
+            0x39 => (self.reg.and(self.load_absolute_y()), 3),
+            0x21 => (self.reg.and(self.load_indirect_x()), 2),
+            0x31 => (self.reg.and(self.load_indirect_y()), 2),
             // ORA  OR Memory with Accumulator
             //      A OR M -> A                      N Z C I D V
             //                                       + + - - - -
@@ -128,39 +110,14 @@ impl Cpu {
             //      absolute,Y    ORA oper,Y    19    3     4*
             //      (indirect,X)  ORA (oper,X)  01    2     6
             //      (indirect),Y  ORA (oper),Y  11    2     5*
-            0x09 => {
-                let oper = self.load_immediate();
-                self.reg.ora(oper);
-                2
-            }
-            0x05 => {
-                self.reg.ora(self.load_zeropage());
-                2
-            }
-            0x15 => {
-                self.reg.ora(self.load_zeropage_x());
-                2
-            }
-            0x0d => {
-                self.reg.ora(self.load_absolute());
-                3
-            }
-            0x1d => {
-                self.reg.ora(self.load_absolute_x());
-                3
-            }
-            0x19 => {
-                self.reg.ora(self.load_absolute_y());
-                3
-            }
-            0x01 => {
-                self.reg.ora(self.load_indirect_x());
-                2
-            }
-            0x11 => {
-                self.reg.ora(self.load_indirect_y());
-                2
-            }
+            0x09 => (self.reg.ora(self.load_immediate()), 2),
+            0x05 => (self.reg.ora(self.load_zeropage()), 2),
+            0x15 => (self.reg.ora(self.load_zeropage_x()), 2),
+            0x0d => (self.reg.ora(self.load_absolute()), 3),
+            0x1d => (self.reg.ora(self.load_absolute_x()), 3),
+            0x19 => (self.reg.ora(self.load_absolute_y()), 3),
+            0x01 => (self.reg.ora(self.load_indirect_x()), 2),
+            0x11 => (self.reg.ora(self.load_indirect_y()), 2),
             // EOR  Exclusive-OR Memory with Accumulator
             //      A EOR M -> A                     N Z C I D V
             //                                       + + - - - -
@@ -174,39 +131,14 @@ impl Cpu {
             //      absolute,Y    EOR oper,Y    59    3     4*
             //      (indirect,X)  EOR (oper,X)  41    2     6
             //      (indirect),Y  EOR (oper),Y  51    2     5*
-            0x49 => {
-                let oper = self.load_immediate();
-                self.reg.eor(oper);
-                2
-            }
-            0x45 => {
-                self.reg.eor(self.load_zeropage());
-                2
-            }
-            0x55 => {
-                self.reg.eor(self.load_zeropage_x());
-                2
-            }
-            0x4d => {
-                self.reg.eor(self.load_absolute());
-                3
-            }
-            0x5d => {
-                self.reg.eor(self.load_absolute_x());
-                3
-            }
-            0x59 => {
-                self.reg.eor(self.load_absolute_y());
-                3
-            }
-            0x41 => {
-                self.reg.eor(self.load_indirect_x());
-                2
-            }
-            0x51 => {
-                self.reg.eor(self.load_indirect_y());
-                2
-            }
+            0x49 => (self.reg.eor(self.load_immediate()), 2),
+            0x45 => (self.reg.eor(self.load_zeropage()), 2),
+            0x55 => (self.reg.eor(self.load_zeropage_x()), 2),
+            0x4d => (self.reg.eor(self.load_absolute()), 3),
+            0x5d => (self.reg.eor(self.load_absolute_x()), 3),
+            0x59 => (self.reg.eor(self.load_absolute_y()), 3),
+            0x41 => (self.reg.eor(self.load_indirect_x()), 2),
+            0x51 => (self.reg.eor(self.load_indirect_y()), 2),
             // CMP  Compare Memory with Accumulator
             //      A - M                            N Z C I D V
             //                                     + + + - - -
@@ -227,7 +159,7 @@ impl Cpu {
                 let cmp = self.reg.a.wrapping_sub(oper);
 
                 self.reg.sr.update_nz(cmp);
-                3
+                ((), 3)
             }
             // BEQ  Branch on Result Zero
             //      branch on Z = 1                  N Z C I D V
@@ -240,11 +172,10 @@ impl Cpu {
                     let offs = self.mem.load(self.reg.pc + 1) as i8;
                     debug!("BEQ -> {}", offs);
                     self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());
-                    2
                 } else {
                     debug!("BEQ no");
-                    2
                 }
+                ((), 2)
             }
             // STA  Store Accumulator in Memory
             //      A -> M                           N Z C I D V
@@ -258,34 +189,13 @@ impl Cpu {
             //      absolute,Y    STA oper,Y    99    3     5
             //      (indirect,X)  STA (oper,X)  81    2     6
             //      (indirect),Y  STA (oper),Y  91    2     6
-            0x85 => {
-                self.store_zeropage(self.reg.a);
-                2
-            }
-            0x95 => {
-                self.store_zeropage_x(self.reg.a);
-                2
-            }
-            0x8d => {
-                self.store_absolute(self.reg.a);
-                3
-            }
-            0x9d => {
-                self.store_absolute_x(self.reg.a);
-                3
-            }
-            0x99 => {
-                self.store_absolute_y(self.reg.a);
-                3
-            }
-            0x91 => {
-                self.store_indirect_y(self.reg.a);
-                2
-            }
-            0x81 => {
-                self.store_indirect_x(self.reg.a);
-                2
-            }
+            0x85 => (self.store_zeropage(self.reg.a), 2),
+            0x95 => (self.store_zeropage_x(self.reg.a), 2),
+            0x8d => (self.store_absolute(self.reg.a), 3),
+            0x9d => (self.store_absolute_x(self.reg.a), 3),
+            0x99 => (self.store_absolute_y(self.reg.a), 3),
+            0x91 => (self.store_indirect_y(self.reg.a), 2),
+            0x81 => (self.store_indirect_x(self.reg.a), 2),
             // STX  Store Index X in Memory
             //      X -> M                           N Z C I D V
             //                                       - - - - - -
@@ -294,18 +204,9 @@ impl Cpu {
             //      zeropage      STX oper      86    2     3
             //      zeropage,Y    STX oper,Y    96    2     4
             //      absolute      STX oper      8E    3     4
-            0x86 => {
-                self.store_zeropage(self.reg.x);
-                2
-            }
-            0x96 => {
-                self.store_zeropage_y(self.reg.x);
-                2
-            }
-            0x8e => {
-                self.store_absolute(self.reg.x);
-                3
-            }
+            0x86 => (self.store_zeropage(self.reg.x), 2),
+            0x96 => (self.store_zeropage_y(self.reg.x), 2),
+            0x8e => (self.store_absolute(self.reg.x), 3),
             // STY  Sore Index Y in Memory
             //      Y -> M                           N Z C I D V
             //                                       - - - - - -
@@ -314,19 +215,9 @@ impl Cpu {
             //      zeropage      STY oper      84    2     3
             //      zeropage,X    STY oper,X    94    2     4
             //      absolute      STY oper      8C    3     4
-            0x84 => {
-                self.store_zeropage(self.reg.y);
-                2
-            }
-            0x94 => {
-                self.store_zeropage_x(self.reg.y);
-                2
-            }
-
-            0x8c => {
-                self.store_absolute(self.reg.y);
-                3
-            }
+            0x84 => (self.store_zeropage(self.reg.y), 2),
+            0x94 => (self.store_zeropage_x(self.reg.y), 2),
+            0x8c => (self.store_absolute(self.reg.y), 3),
             // LDA  Load Accumulator with Memory
             // M -> A                           N Z C I D V
             //                                  + + - - - -
@@ -340,38 +231,14 @@ impl Cpu {
             // absolute,Y    LDA oper,Y    B9    3     4*
             // (indirect,X)  LDA (oper,X)  A1    2     6
             // (indirect),Y  LDA (oper),Y  B1    2     5*
-            0xa9 => {
-                self.reg.lda(self.load_immediate());
-                2
-            }
-            0xa5 => {
-                self.reg.lda(self.load_zeropage());
-                2
-            }
-            0xb5 => {
-                self.reg.lda(self.load_zeropage_x());
-                2
-            }
-            0xad => {
-                self.reg.lda(self.load_absolute());
-                3
-            }
-            0xbd => {
-                self.reg.lda(self.load_absolute_x());
-                3
-            }
-            0xb9 => {
-                self.reg.lda(self.load_absolute_y());
-                3
-            }
-            0xb1 => {
-                self.reg.lda(self.load_indirect_y());
-                2
-            }
-            0xa1 => {
-                self.reg.lda(self.load_indirect_x());
-                2
-            }
+            0xa9 => (self.reg.lda(self.load_immediate()), 2),
+            0xa5 => (self.reg.lda(self.load_zeropage()), 2),
+            0xb5 => (self.reg.lda(self.load_zeropage_x()), 2),
+            0xad => (self.reg.lda(self.load_absolute()), 3),
+            0xbd => (self.reg.lda(self.load_absolute_x()), 3),
+            0xb9 => (self.reg.lda(self.load_absolute_y()), 3),
+            0xb1 => (self.reg.lda(self.load_indirect_y()), 2),
+            0xa1 => (self.reg.lda(self.load_indirect_x()), 2),
 
             // LDY  Load Index Y with Memory
             //      M -> Y                           N Z C I D V
@@ -383,26 +250,11 @@ impl Cpu {
             //      zeropage,X    LDY oper,X    B4    2     4
             //      absolute      LDY oper      AC    3     4
             //      absolute,X    LDY oper,X    BC    3     4*
-            0xa0 => {
-                self.reg.ldy(self.load_immediate());
-                2
-            }
-            0xa4 => {
-                self.reg.ldy(self.load_zeropage());
-                2
-            }
-            0xb4 => {
-                self.reg.ldy(self.load_zeropage_x());
-                2
-            }
-            0xac => {
-                self.reg.ldy(self.load_absolute());
-                3
-            }
-            0xbc => {
-                self.reg.ldy(self.load_absolute_x());
-                3
-            }
+            0xa0 => (self.reg.ldy(self.load_immediate()), 2),
+            0xa4 => (self.reg.ldy(self.load_zeropage()), 2),
+            0xb4 => (self.reg.ldy(self.load_zeropage_x()), 2),
+            0xac => (self.reg.ldy(self.load_absolute()), 3),
+            0xbc => (self.reg.ldy(self.load_absolute_x()), 3),
             // LDX  Load Index X with Memory
             //      M -> X                           N Z C I D V
             //                                       + + - - - -
@@ -413,26 +265,11 @@ impl Cpu {
             //      zeropage,Y    LDX oper,Y    B6    2     4
             //      absolute      LDX oper      AE    3     4
             //      absolute,Y    LDX oper,Y    BE    3     4*
-            0xa2 => {
-                self.reg.ldx(self.load_immediate());
-                2
-            }
-            0xa6 => {
-                self.reg.ldx(self.load_zeropage());
-                2
-            }
-            0xb6 => {
-                self.reg.ldx(self.load_zeropage_y());
-                2
-            }
-            0xae => {
-                self.reg.ldx(self.load_absolute());
-                3
-            }
-            0xbe => {
-                self.reg.ldx(self.load_absolute_y());
-                3
-            }
+            0xa2 => (self.reg.ldx(self.load_immediate()), 2),
+            0xa6 => (self.reg.ldx(self.load_zeropage()), 2),
+            0xb6 => (self.reg.ldx(self.load_zeropage_y()), 2),
+            0xae => (self.reg.ldx(self.load_absolute()), 3),
+            0xbe => (self.reg.ldx(self.load_absolute_y()), 3),
 
             // INC  Increment Memory by One
             //      M + 1 -> M                       N Z C I D V
@@ -447,26 +284,26 @@ impl Cpu {
                 let v = self.load_zeropage().wrapping_add(1);
                 self.reg.sr.update_nz(v);
                 self.store_zeropage(v);
-                2
+                ((), 2)
             }
             0xf6 => {
                 let v = self.load_zeropage_x().wrapping_add(1);
                 self.reg.sr.update_nz(v);
                 self.store_zeropage_x(v);
-                2
+                ((), 2)
             }
 
             0xee => {
                 let v = self.load_absolute().wrapping_add(1);
                 self.reg.sr.update_nz(v);
                 self.store_absolute(v);
-                3
+                ((), 3)
             }
             0xfe => {
                 let v = self.load_absolute_x().wrapping_add(1);
                 self.reg.sr.update_nz(v);
                 self.store_absolute_x(v);
-                3
+                ((), 3)
             }
             // DEC  Decrement Memory by One
             // M - 1 -> M                       N Z C I D V
@@ -481,39 +318,40 @@ impl Cpu {
                 let v = self.load_zeropage().wrapping_sub(1);
                 self.reg.sr.update_nz(v);
                 self.store_zeropage(v);
-                2
+                ((), 2)
             }
             0xd6 => {
                 let v = self.load_zeropage_x().wrapping_sub(1);
                 self.reg.sr.update_nz(v);
                 self.store_zeropage_x(v);
-                2
+                ((), 2)
             }
 
             0xce => {
                 let v = self.load_absolute().wrapping_sub(1);
                 self.reg.sr.update_nz(v);
                 self.store_absolute(v);
-                3
+                ((), 3)
             }
             0xde => {
                 let v = self.load_absolute_x().wrapping_sub(1);
                 self.reg.sr.update_nz(v);
                 self.store_absolute_x(v);
-                3
+                ((), 3)
             }
             0xaa => {
                 debug!("TAX");
                 self.reg.x = self.reg.a;
                 self.reg.sr.update_nz(self.reg.x);
-                1
+                ((), 1)
             }
             0xe8 => {
                 debug!("INX");
                 let res = (self.reg.x as u16).wrapping_add(1);
                 self.reg.sr.update_nvzc(res);
                 self.reg.x = res as u8;
-                1
+
+                ((), 1)
             }
             0 => {
                 println!("break on 00");
