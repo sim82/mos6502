@@ -43,7 +43,6 @@ impl Cpu {
         hexdump::dump(&self.get_mem().get());
     }
 }
-
 impl Cpu {
     fn dispatch_opcode(&mut self, opc: u8) -> Option<i32> {
         let size = match opc {
@@ -116,7 +115,19 @@ impl Cpu {
                 self.reg.and(self.load_indirect_y());
                 2
             }
-            // ORA
+            // ORA  OR Memory with Accumulator
+            //      A OR M -> A                      N Z C I D V
+            //                                       + + - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     ORA #oper     09    2     2
+            //      zeropage      ORA oper      05    2     3
+            //      zeropage,X    ORA oper,X    15    2     4
+            //      absolute      ORA oper      0D    3     4
+            //      absolute,X    ORA oper,X    1D    3     4*
+            //      absolute,Y    ORA oper,Y    19    3     4*
+            //      (indirect,X)  ORA (oper,X)  01    2     6
+            //      (indirect),Y  ORA (oper),Y  11    2     5*
             0x09 => {
                 let oper = self.load_immediate();
                 self.reg.ora(oper);
@@ -150,7 +161,19 @@ impl Cpu {
                 self.reg.ora(self.load_indirect_y());
                 2
             }
-            // EOR
+            // EOR  Exclusive-OR Memory with Accumulator
+            //      A EOR M -> A                     N Z C I D V
+            //                                       + + - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     EOR #oper     49    2     2
+            //      zeropage      EOR oper      45    2     3
+            //      zeropage,X    EOR oper,X    55    2     4
+            //      absolute      EOR oper      4D    3     4
+            //      absolute,X    EOR oper,X    5D    3     4*
+            //      absolute,Y    EOR oper,Y    59    3     4*
+            //      (indirect,X)  EOR (oper,X)  41    2     6
+            //      (indirect),Y  EOR (oper),Y  51    2     5*
             0x49 => {
                 let oper = self.load_immediate();
                 self.reg.eor(oper);
@@ -184,7 +207,19 @@ impl Cpu {
                 self.reg.eor(self.load_indirect_y());
                 2
             }
-            // CMP
+            // CMP  Compare Memory with Accumulator
+            //      A - M                            N Z C I D V
+            //                                     + + + - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     CMP #oper     C9    2     2
+            //      zeropage      CMP oper      C5    2     3
+            //      zeropage,X    CMP oper,X    D5    2     4
+            //      absolute      CMP oper      CD    3     4
+            //      absolute,X    CMP oper,X    DD    3     4*
+            //      absolute,Y    CMP oper,Y    D9    3     4*
+            //      (indirect,X)  CMP (oper,X)  C1    2     6
+            //      (indirect),Y  CMP (oper),Y  D1    2     5*
             0xcd => {
                 //
                 let oper = self.load_absolute();
@@ -194,7 +229,12 @@ impl Cpu {
                 self.reg.sr.update_nz(cmp);
                 3
             }
-            // BEQ
+            // BEQ  Branch on Result Zero
+            //      branch on Z = 1                  N Z C I D V
+            //                                       - - - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      relative      BEQ oper      F0    2     2**
             0xf0 => {
                 if self.reg.sr.z {
                     let offs = self.mem.load(self.reg.pc + 1) as i8;
@@ -206,22 +246,27 @@ impl Cpu {
                     2
                 }
             }
-            // STA
+            // STA  Store Accumulator in Memory
+            //      A -> M                           N Z C I D V
+            //                                       - - - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      zeropage      STA oper      85    2     3
+            //      zeropage,X    STA oper,X    95    2     4
+            //      absolute      STA oper      8D    3     4
+            //      absolute,X    STA oper,X    9D    3     5
+            //      absolute,Y    STA oper,Y    99    3     5
+            //      (indirect,X)  STA (oper,X)  81    2     6
+            //      (indirect),Y  STA (oper),Y  91    2     6
             0x85 => {
-                // debug!("STA");
-                // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
                 self.store_zeropage(self.reg.a);
                 2
             }
             0x95 => {
-                // debug!("STA");
-                // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
                 self.store_zeropage_x(self.reg.a);
                 2
             }
             0x8d => {
-                debug!("STA");
-                // self.mem.store(self.mem.load16(self.reg.pc + 1), self.reg.a);
                 self.store_absolute(self.reg.a);
                 3
             }
@@ -241,7 +286,14 @@ impl Cpu {
                 self.store_indirect_x(self.reg.a);
                 2
             }
-            // STX
+            // STX  Store Index X in Memory
+            //      X -> M                           N Z C I D V
+            //                                       - - - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      zeropage      STX oper      86    2     3
+            //      zeropage,Y    STX oper,Y    96    2     4
+            //      absolute      STX oper      8E    3     4
             0x86 => {
                 self.store_zeropage(self.reg.x);
                 2
@@ -254,7 +306,14 @@ impl Cpu {
                 self.store_absolute(self.reg.x);
                 3
             }
-            // STY
+            // STY  Sore Index Y in Memory
+            //      Y -> M                           N Z C I D V
+            //                                       - - - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      zeropage      STY oper      84    2     3
+            //      zeropage,X    STY oper,X    94    2     4
+            //      absolute      STY oper      8C    3     4
             0x84 => {
                 self.store_zeropage(self.reg.y);
                 2
@@ -268,7 +327,19 @@ impl Cpu {
                 self.store_absolute(self.reg.y);
                 3
             }
-            // LDA
+            // LDA  Load Accumulator with Memory
+            // M -> A                           N Z C I D V
+            //                                  + + - - - -
+            // addressing    assembler    opc  bytes  cyles
+            // --------------------------------------------
+            // immidiate     LDA #oper     A9    2     2
+            // zeropage      LDA oper      A5    2     3
+            // zeropage,X    LDA oper,X    B5    2     4
+            // absolute      LDA oper      AD    3     4
+            // absolute,X    LDA oper,X    BD    3     4*
+            // absolute,Y    LDA oper,Y    B9    3     4*
+            // (indirect,X)  LDA (oper,X)  A1    2     6
+            // (indirect),Y  LDA (oper),Y  B1    2     5*
             0xa9 => {
                 self.reg.lda(self.load_immediate());
                 2
@@ -301,7 +372,17 @@ impl Cpu {
                 self.reg.lda(self.load_indirect_x());
                 2
             }
-            // LDY
+
+            // LDY  Load Index Y with Memory
+            //      M -> Y                           N Z C I D V
+            //                                       + + - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     LDY #oper     A0    2     2
+            //      zeropage      LDY oper      A4    2     3
+            //      zeropage,X    LDY oper,X    B4    2     4
+            //      absolute      LDY oper      AC    3     4
+            //      absolute,X    LDY oper,X    BC    3     4*
             0xa0 => {
                 self.reg.ldy(self.load_immediate());
                 2
@@ -322,7 +403,16 @@ impl Cpu {
                 self.reg.ldy(self.load_absolute_x());
                 3
             }
-            // LDX
+            // LDX  Load Index X with Memory
+            //      M -> X                           N Z C I D V
+            //                                       + + - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     LDX #oper     A2    2     2
+            //      zeropage      LDX oper      A6    2     3
+            //      zeropage,Y    LDX oper,Y    B6    2     4
+            //      absolute      LDX oper      AE    3     4
+            //      absolute,Y    LDX oper,Y    BE    3     4*
             0xa2 => {
                 self.reg.ldx(self.load_immediate());
                 2
@@ -341,6 +431,75 @@ impl Cpu {
             }
             0xbe => {
                 self.reg.ldx(self.load_absolute_y());
+                3
+            }
+
+            // INC  Increment Memory by One
+            //      M + 1 -> M                       N Z C I D V
+            //                                       + + - - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      zeropage      INC oper      E6    2     5
+            //      zeropage,X    INC oper,X    F6    2     6
+            //      absolute      INC oper      EE    3     6
+            //      absolute,X    INC oper,X    FE    3     7
+            0xe6 => {
+                let v = self.load_zeropage().wrapping_add(1);
+                self.reg.sr.update_nz(v);
+                self.store_zeropage(v);
+                2
+            }
+            0xf6 => {
+                let v = self.load_zeropage_x().wrapping_add(1);
+                self.reg.sr.update_nz(v);
+                self.store_zeropage_x(v);
+                2
+            }
+
+            0xee => {
+                let v = self.load_absolute().wrapping_add(1);
+                self.reg.sr.update_nz(v);
+                self.store_absolute(v);
+                3
+            }
+            0xfe => {
+                let v = self.load_absolute_x().wrapping_add(1);
+                self.reg.sr.update_nz(v);
+                self.store_absolute_x(v);
+                3
+            }
+            // DEC  Decrement Memory by One
+            // M - 1 -> M                       N Z C I D V
+            //                                  + + - - - -
+            // addressing    assembler    opc  bytes  cyles
+            // --------------------------------------------
+            // zeropage      DEC oper      C6    2     5
+            // zeropage,X    DEC oper,X    D6    2     6
+            // absolute      DEC oper      CE    3     6
+            // absolute,X    DEC oper,X    DE    3     7
+            0xc6 => {
+                let v = self.load_zeropage().wrapping_sub(1);
+                self.reg.sr.update_nz(v);
+                self.store_zeropage(v);
+                2
+            }
+            0xd6 => {
+                let v = self.load_zeropage_x().wrapping_sub(1);
+                self.reg.sr.update_nz(v);
+                self.store_zeropage_x(v);
+                2
+            }
+
+            0xce => {
+                let v = self.load_absolute().wrapping_sub(1);
+                self.reg.sr.update_nz(v);
+                self.store_absolute(v);
+                3
+            }
+            0xde => {
+                let v = self.load_absolute_x().wrapping_sub(1);
+                self.reg.sr.update_nz(v);
+                self.store_absolute_x(v);
                 3
             }
             0xaa => {
