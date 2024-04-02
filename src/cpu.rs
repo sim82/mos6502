@@ -339,6 +339,167 @@ impl Cpu {
                 self.store_absolute_x(v);
                 ((), 3)
             }
+            // LSR  Shift One Bit Right (Memory or Accumulator)
+
+            //      0 -> [76543210] -> C             N Z C I D V
+            //                                       0 + + - - -
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      accumulator   LSR A         4A    1     2
+            //      zeropage      LSR oper      46    2     5
+            //      zeropage,X    LSR oper,X    56    2     6
+            //      absolute      LSR oper      4E    3     6
+            //      absolute,X    LSR oper,X    5E    3     7
+            0x4a => {
+                self.reg.a = self.reg.lsr(self.reg.a);
+                ((), 1)
+            }
+
+            0x46 => {
+                let addr = self.addr_zeropage() as u16;
+                let v = self.reg.lsr(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x56 => {
+                let addr = self.addr_zeropage_x() as u16;
+                let v = self.reg.lsr(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x4e => {
+                let addr = self.addr_absolute();
+                let v = self.reg.lsr(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+            0x5e => {
+                let addr = self.addr_absolute_x();
+                let v = self.reg.lsr(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+
+            // ASL  Shift Left One Bit (Memory or Accumulator)
+
+            //      C <- [76543210] <- 0             N Z C I D V
+            //                                       + + + - - -
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      accumulator   ASL A         0A    1     2
+            //      zeropage      ASL oper      06    2     5
+            //      zeropage,X    ASL oper,X    16    2     6
+            //      absolute      ASL oper      0E    3     6
+            //      absolute,X    ASL oper,X    1E    3     7
+            0x0a => {
+                self.reg.a = self.reg.asl(self.reg.a);
+                ((), 1)
+            }
+
+            0x06 => {
+                let addr = self.addr_zeropage() as u16;
+                let v = self.reg.asl(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x16 => {
+                let addr = self.addr_zeropage_x() as u16;
+                let v = self.reg.asl(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x0e => {
+                let addr = self.addr_absolute();
+                let v = self.reg.asl(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+            0x1e => {
+                let addr = self.addr_absolute_x();
+                let v = self.reg.asl(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+            // ROL  Rotate One Bit Left (Memory or Accumulator)
+            //      C <- [76543210] <- C             N Z C I D V
+            //                                       + + + - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      accumulator   ROL A         2A    1     2
+            //      zeropage      ROL oper      26    2     5
+            //      zeropage,X    ROL oper,X    36    2     6
+            //      absolute      ROL oper      2E    3     6
+            //      absolute,X    ROL oper,X    3E    3     7
+            0x2a => {
+                self.reg.a = self.reg.rol(self.reg.a);
+                ((), 1)
+            }
+
+            0x26 => {
+                let addr = self.addr_zeropage() as u16;
+                let v = self.reg.rol(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x36 => {
+                let addr = self.addr_zeropage_x() as u16;
+                let v = self.reg.rol(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x2e => {
+                let addr = self.addr_absolute();
+                let v = self.reg.rol(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+            0x3e => {
+                let addr = self.addr_absolute_x();
+                let v = self.reg.rol(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+            // ROR  Rotate One Bit Right (Memory or Accumulator)
+            //      C -> [76543210] -> C             N Z C I D V
+            //                                       + + + - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      accumulator   ROR A         6A    1     2
+            //      zeropage      ROR oper      66    2     5
+            //      zeropage,X    ROR oper,X    76    2     6
+            //      absolute      ROR oper      6E    3     6
+            //      absolute,X    ROR oper,X    7E    3     7
+            0x6a => {
+                self.reg.a = self.reg.ror(self.reg.a);
+                ((), 1)
+            }
+
+            0x66 => {
+                let addr = self.addr_zeropage() as u16;
+                let v = self.reg.ror(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x76 => {
+                let addr = self.addr_zeropage_x() as u16;
+                let v = self.reg.ror(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 2)
+            }
+            0x6e => {
+                let addr = self.addr_absolute();
+                let v = self.reg.ror(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
+            0x7e => {
+                let addr = self.addr_absolute_x();
+                let v = self.reg.ror(self.mem.load(addr));
+                self.mem.store(addr, v);
+                ((), 3)
+            }
             0xaa => {
                 debug!("TAX");
                 self.reg.x = self.reg.a;
@@ -365,16 +526,17 @@ impl Cpu {
 
 impl Cpu {
     fn load_zeropage(&self) -> u8 {
-        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let zp_addr = self.addr_zeropage();
         let oper = self.mem.load(zp_addr as u16);
         oper
     }
+
     fn load_zeropage_x(&self) -> u8 {
-        let zp_addr = self.mem.load(self.reg.pc + 1);
-        let addr = zp_addr.wrapping_add(self.reg.x);
+        let addr = self.addr_zeropage_x();
         let oper = self.mem.load(addr as u16);
         oper
     }
+
     fn load_zeropage_y(&self) -> u8 {
         let zp_addr = self.mem.load(self.reg.pc + 1);
         let addr = zp_addr.wrapping_add(self.reg.y);
@@ -382,10 +544,11 @@ impl Cpu {
         oper
     }
     fn load_absolute(&self) -> u8 {
-        let addr = self.mem.load16(self.reg.pc + 1);
+        let addr = self.addr_absolute();
         let oper = self.mem.load(addr);
         oper
     }
+
     fn load_absolute_x(&self) -> u8 {
         let addr = self.addr_absolute_x();
         let oper = self.mem.load(addr);
@@ -444,18 +607,33 @@ impl Cpu {
         self.mem.store(zp_addr as u16, v);
     }
 
+    fn addr_zeropage(&self) -> u8 {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        zp_addr
+    }
+    fn addr_zeropage_x(&self) -> u8 {
+        let zp_addr = self.mem.load(self.reg.pc + 1);
+        let addr = zp_addr.wrapping_add(self.reg.x);
+        addr
+    }
+    fn addr_absolute(&self) -> u16 {
+        let addr = self.mem.load16(self.reg.pc + 1);
+        addr
+    }
     fn addr_absolute_x(&self) -> u16 {
         let addr = self.mem.load16(self.reg.pc + 1);
         let addr = addr
             .wrapping_add(self.reg.x as u16)
-            .wrapping_add(self.reg.sr.carry());
+            // .wrapping_add(self.reg.sr.carry())
+        ;
         addr
     }
     fn addr_absolute_y(&self) -> u16 {
         let addr = self.mem.load16(self.reg.pc + 1);
         let addr = addr
             .wrapping_add(self.reg.y as u16)
-            .wrapping_add(self.reg.sr.carry());
+            // .wrapping_add(self.reg.sr.carry())
+        ;
         addr
     }
     fn addr_indirect_y(&self) -> u16 {
@@ -465,7 +643,8 @@ impl Cpu {
         debug!("zp_addr: {:x} {:x}", zp_addr, addr);
         let eff_addr = addr
             .wrapping_add(self.reg.y as u16)
-            .wrapping_add(self.reg.sr.carry());
+            // .wrapping_add(self.reg.sr.carry())
+        ;
         eff_addr
     }
     fn addr_indirect_x(&self) -> u16 {

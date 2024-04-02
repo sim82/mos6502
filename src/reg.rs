@@ -49,6 +49,32 @@ impl Registers {
         self.a = self.a & a;
         self.sr.update_nz(self.a);
     }
+    pub fn lsr(&mut self, v: u8) -> u8 {
+        self.sr.c = (v & 0x1) == 0x1;
+        let res = v >> 1;
+        self.sr.update_nz(res);
+        res
+    }
+    pub fn asl(&mut self, v: u8) -> u8 {
+        self.sr.c = (v & 0x80) == 0x80;
+        let res = v << 1;
+        self.sr.update_nz(res);
+        res
+    }
+    pub fn ror(&mut self, v: u8) -> u8 {
+        let oldc = if self.sr.c { 0x80 } else { 0 };
+        self.sr.c = (v & 0x1) == 0x1;
+        let res = (v >> 1) | oldc;
+        self.sr.update_nz(res);
+        res
+    }
+    pub fn rol(&mut self, v: u8) -> u8 {
+        let oldc = if self.sr.c { 0x1 } else { 0 };
+        self.sr.c = (v & 0x80) == 0x80;
+        let res = (v << 1) | oldc;
+        self.sr.update_nz(res);
+        res
+    }
 }
 impl Default for Registers {
     fn default() -> Self {
