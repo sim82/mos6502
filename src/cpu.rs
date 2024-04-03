@@ -61,8 +61,24 @@ impl Cpu {
                 // 0
                 ((), 0)
             }
+
+            // JMP  Jump to New Location
+
+            //      (PC+1) -> PCL                    N Z C I D V
+            //      (PC+2) -> PCH                    - - - - - -
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      absolute      JMP oper      4C    3     3
+            //      indirect      JMP (oper)    6C    3     5
             0x4c => {
                 self.reg.pc = self.mem.load16(self.reg.pc + 1);
+                ((), 0)
+            }
+            0x6c => {
+                let addr = self.mem.load16(self.reg.pc + 1);
+                self.reg.pc = self.mem.load16(addr);
+                info!("JMP ind: {addr:x} {:x}", self.reg.pc);
                 ((), 0)
             }
             0x60 => {
@@ -500,18 +516,67 @@ impl Cpu {
                 self.mem.store(addr, v);
                 ((), 3)
             }
+            // TAX
             0xaa => {
-                debug!("TAX");
                 self.reg.x = self.reg.a;
                 self.reg.sr.update_nz(self.reg.x);
                 ((), 1)
             }
+            // TXA
+            0x8a => {
+                self.reg.a = self.reg.x;
+                self.reg.sr.update_nz(self.reg.a);
+                ((), 1)
+            }
+            // TXS
+            0x9a => {
+                self.reg.sp = self.reg.x as u16;
+                ((), 1)
+            }
+            // TSX
+            0xba => {
+                self.reg.x = self.reg.sp as u8; // FIXME: probably wrong
+                self.reg.sr.update_nz(self.reg.x);
+                ((), 1)
+            }
+            // TYA
+            0x98 => {
+                self.reg.a = self.reg.y;
+                self.reg.sr.update_nz(self.reg.a);
+                ((), 1)
+            }
+            // TAY
+            0xa8 => {
+                self.reg.y = self.reg.a;
+                self.reg.sr.update_nz(self.reg.y);
+                ((), 1)
+            }
+            // INX
             0xe8 => {
-                debug!("INX");
                 let res = (self.reg.x as u16).wrapping_add(1);
                 self.reg.sr.update_nvzc(res);
                 self.reg.x = res as u8;
-
+                ((), 1)
+            }
+            // DEX
+            0xca => {
+                let res = (self.reg.x as u16).wrapping_sub(1);
+                self.reg.sr.update_nvzc(res);
+                self.reg.x = res as u8;
+                ((), 1)
+            }
+            // INX
+            0xc8 => {
+                let res = (self.reg.y as u16).wrapping_add(1);
+                self.reg.sr.update_nvzc(res);
+                self.reg.y = res as u8;
+                ((), 1)
+            }
+            // DEY
+            0x88 => {
+                let res = (self.reg.y as u16).wrapping_sub(1);
+                self.reg.sr.update_nvzc(res);
+                self.reg.y = res as u8;
                 ((), 1)
             }
             0 => {
