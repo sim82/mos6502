@@ -15,15 +15,26 @@ impl Registers {
         let res = self.a as u16 + oper as u16 + self.sr.carry();
 
         self.sr.update_nz(res as u8);
-        // self.sr.update_vc(self.a, oper as u16res);
-        // debug!(
-        //     "ADC: {:x} + {:x} = {:x} {}",
-        //     self.a, oper, res as u8, self.sr
-        // );
-        self.sr.v = res > 0xff;
-        self.sr.c = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+        self.sr.c = res > 0xff;
+        self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
 
         self.a = res as u8;
+    }
+    pub fn sbc(&mut self, oper: u8) {
+        let res = (self.a as u16)
+            .wrapping_sub(oper as u16)
+            .wrapping_sub(self.sr.inv_carry());
+
+        self.sr.update_nz(res as u8);
+        self.sr.c = res < 0xff;
+        self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+
+        self.a = res as u8;
+    }
+    pub fn cmp(&mut self, a: u8, b: u8) {
+        let res = (a as u16).wrapping_sub(b as u16);
+        self.sr.update_nz(res as u8);
+        self.sr.c = res > 0xff;
     }
     pub fn ora(&mut self, oper: u8) {
         self.a |= oper;
@@ -132,7 +143,14 @@ impl StatusRegister {
     }
     pub fn carry(&self) -> u16 {
         if self.c {
-            1 << 8
+            1 // << 8
+        } else {
+            0
+        }
+    }
+    pub fn inv_carry(&self) -> u16 {
+        if !self.c {
+            1 // << 8
         } else {
             0
         }

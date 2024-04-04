@@ -87,9 +87,52 @@ impl Cpu {
                 debug!("RTS -> {:x}", self.reg.pc);
                 ((), 1)
             }
-            0x65 => (self.reg.adc(self.load_zeropage()), 2),
+            // ADC  Add Memory to Accumulator with Carry
+
+            //      A + M + C -> A, C                N Z C I D V
+            //                                       + + + - - +
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     ADC #oper     69    2     2
+            //      zeropage      ADC oper      65    2     3
+            //      zeropage,X    ADC oper,X    75    2     4
+            //      absolute      ADC oper      6D    3     4
+            //      absolute,X    ADC oper,X    7D    3     4*
+            //      absolute,Y    ADC oper,Y    79    3     4*
+            //      (indirect,X)  ADC (oper,X)  61    2     6
+            //      (indirect),Y  ADC (oper),Y  71    2     5*
             0x69 => (self.reg.adc(self.load_immediate()), 2),
+            0x65 => (self.reg.adc(self.load_zeropage()), 2),
+            0x75 => (self.reg.adc(self.load_zeropage_x()), 2),
             0x6d => (self.reg.adc(self.load_absolute()), 3),
+            0x7d => (self.reg.adc(self.load_absolute_x()), 3),
+            0x79 => (self.reg.adc(self.load_absolute_y()), 3),
+            0x61 => (self.reg.adc(self.load_indirect_x()), 2),
+            0x71 => (self.reg.adc(self.load_indirect_y()), 2),
+            // SBC  Subtract Memory from Accumulator with Borrow
+
+            //      A - M - C -> A                   N Z C I D V
+            //                                       + + + - - +
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     SBC #oper     E9    2     2
+            //      zeropage      SBC oper      E5    2     3
+            //      zeropage,X    SBC oper,X    F5    2     4
+            //      absolute      SBC oper      ED    3     4
+            //      absolute,X    SBC oper,X    FD    3     4*
+            //      absolute,Y    SBC oper,Y    F9    3     4*
+            //      (indirect,X)  SBC (oper,X)  E1    2     6
+            //      (indirect),Y  SBC (oper),Y  F1    2     5*
+            0xe9 => (self.reg.sbc(self.load_immediate()), 2),
+            0xe5 => (self.reg.sbc(self.load_zeropage()), 2),
+            0xf5 => (self.reg.sbc(self.load_zeropage_x()), 2),
+            0xed => (self.reg.sbc(self.load_absolute()), 3),
+            0xfd => (self.reg.sbc(self.load_absolute_x()), 3),
+            0xf9 => (self.reg.sbc(self.load_absolute_y()), 3),
+            0xe1 => (self.reg.sbc(self.load_indirect_x()), 2),
+            0xf1 => (self.reg.sbc(self.load_indirect_y()), 2),
             // AND  AND Memory with Accumulator
 
             //      A AND M -> A                     N Z C I D V
@@ -157,7 +200,7 @@ impl Cpu {
             0x51 => (self.reg.eor(self.load_indirect_y()), 2),
             // CMP  Compare Memory with Accumulator
             //      A - M                            N Z C I D V
-            //                                     + + + - - -
+            //                                       + + + - - -
             //      addressing    assembler    opc  bytes  cyles
             //      --------------------------------------------
             //      immidiate     CMP #oper     C9    2     2
@@ -168,15 +211,38 @@ impl Cpu {
             //      absolute,Y    CMP oper,Y    D9    3     4*
             //      (indirect,X)  CMP (oper,X)  C1    2     6
             //      (indirect),Y  CMP (oper),Y  D1    2     5*
-            0xcd => {
-                //
-                let oper = self.load_absolute();
-                debug!("cmp: {:x} {:x}", oper, self.reg.a);
-                let cmp = self.reg.a.wrapping_sub(oper);
+            0xc9 => (self.reg.cmp(self.reg.a, self.load_immediate()), 2),
+            0xc5 => (self.reg.cmp(self.reg.a, self.load_zeropage()), 2),
+            0xd5 => (self.reg.cmp(self.reg.a, self.load_zeropage_x()), 2),
+            0xcd => (self.reg.cmp(self.reg.a, self.load_absolute()), 3),
+            0xdd => (self.reg.cmp(self.reg.a, self.load_absolute_x()), 3),
+            0xd9 => (self.reg.cmp(self.reg.a, self.load_absolute_y()), 3),
+            0xc1 => (self.reg.cmp(self.reg.a, self.load_indirect_x()), 2),
+            0xd1 => (self.reg.cmp(self.reg.a, self.load_indirect_y()), 2),
 
-                self.reg.sr.update_nz(cmp);
-                ((), 3)
-            }
+            // CPX  Compare Memory and Index X
+            //      X - M                            N Z C I D V
+            //                                       + + + - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     CPX #oper     E0    2     2
+            //      zeropage      CPX oper      E4    2     3
+            //      absolute      CPX oper      EC    3     4
+            0xe0 => (self.reg.cmp(self.reg.x, self.load_immediate()), 2),
+            0xe4 => (self.reg.cmp(self.reg.x, self.load_zeropage()), 2),
+            0xec => (self.reg.cmp(self.reg.x, self.load_absolute()), 3),
+
+            // CPY  Compare Memory and Index Y
+            //      Y - M                            N Z C I D V
+            //                                       + + + - - -
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      immidiate     CPY #oper     C0    2     2
+            //      zeropage      CPY oper      C4    2     3
+            //      absolute      CPY oper      CC    3     4
+            0xc0 => (self.reg.cmp(self.reg.y, self.load_immediate()), 2),
+            0xc4 => (self.reg.cmp(self.reg.y, self.load_zeropage()), 2),
+            0xcc => (self.reg.cmp(self.reg.y, self.load_absolute()), 3),
             // BEQ  Branch on Result Zero
             //      branch on Z = 1                  N Z C I D V
             //                                       - - - - - -
@@ -190,6 +256,22 @@ impl Cpu {
                     self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());
                 } else {
                     debug!("BEQ no");
+                }
+                ((), 2)
+            }
+            // BNE  Branch on Result not Zero
+
+            //      branch on Z = 0                  N Z C I D V
+            //                                       - - - - - -
+
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      relative      BNE oper      D0    2     2**
+            0xd0 => {
+                if !self.reg.sr.z {
+                    let offs = self.mem.load(self.reg.pc + 1) as i8;
+                    self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());
+                } else {
                 }
                 ((), 2)
             }
