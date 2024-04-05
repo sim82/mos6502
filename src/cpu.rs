@@ -260,18 +260,57 @@ impl Cpu {
                 ((), 2)
             }
             // BNE  Branch on Result not Zero
-
             //      branch on Z = 0                  N Z C I D V
             //                                       - - - - - -
-
             //      addressing    assembler    opc  bytes  cyles
             //      --------------------------------------------
             //      relative      BNE oper      D0    2     2**
             0xd0 => {
                 if !self.reg.sr.z {
-                    let offs = self.mem.load(self.reg.pc + 1) as i8;
-                    self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());
+                    self.branch_relative();
                 } else {
+                }
+                ((), 2)
+            }
+            // BPL
+            0x10 => {
+                if !self.reg.sr.n {
+                    self.branch_relative();
+                }
+                ((), 2)
+            }
+            // BMI
+            0x30 => {
+                if self.reg.sr.n {
+                    self.branch_relative();
+                }
+                ((), 2)
+            }
+            // BVC
+            0x50 => {
+                if !self.reg.sr.v {
+                    self.branch_relative();
+                }
+                ((), 2)
+            }
+            // BVS
+            0x70 => {
+                if self.reg.sr.v {
+                    self.branch_relative();
+                }
+                ((), 2)
+            }
+            // BCC
+            0x90 => {
+                if !self.reg.sr.c {
+                    self.branch_relative();
+                }
+                ((), 2)
+            }
+            // BCS
+            0xb0 => {
+                if self.reg.sr.c {
+                    self.branch_relative();
                 }
                 ((), 2)
             }
@@ -598,6 +637,18 @@ impl Cpu {
                 self.mem.store(addr, v);
                 ((), 3)
             }
+            // BIT  Test Bits in Memory with Accumulator
+            //      bits 7 and 6 of operand are transfered to bit 7 and 6 of SR (N,V);
+            //      the zeroflag is set to the result of operand AND accumulator.
+            //      A AND M, M7 -> N, M6 -> V        N Z C I D V
+            //                                      M7 + - - - M6
+            //      addressing    assembler    opc  bytes  cyles
+            //      --------------------------------------------
+            //      zeropage      BIT oper      24    2     3
+            //      absolute      BIT oper      2C    3     4
+            0x24 => (self.reg.bit(self.load_zeropage()), 2),
+            0x2c => (self.reg.bit(self.load_zeropage()), 3),
+
             // TAX
             0xaa => {
                 self.reg.x = self.reg.a;
@@ -661,6 +712,8 @@ impl Cpu {
                 self.reg.y = res as u8;
                 ((), 1)
             }
+            // NOP
+            0xea => ((), 1),
             0 => {
                 println!("break on 00");
                 return None;
@@ -668,6 +721,11 @@ impl Cpu {
             _ => panic!("unhandled opcode: {:x} pc: {:x}", opc, self.reg.pc),
         };
         Some(size)
+    }
+
+    fn branch_relative(&mut self) {
+        let offs = self.mem.load(self.reg.pc + 1) as i8;
+        self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());
     }
 }
 

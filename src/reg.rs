@@ -14,10 +14,13 @@ impl Registers {
     pub fn adc(&mut self, oper: u8) {
         let res = self.a as u16 + oper as u16 + self.sr.carry();
 
+        println!("adc: {:x} {:x} {:x}", self.a, oper, self.sr.carry());
         self.sr.update_nz(res as u8);
         self.sr.c = res > 0xff;
-        self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+        // self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+        // self.sr.v = sign(self.a) != sign(res as u8);
 
+        self.sr.v = (res > 0x7f) != ((res as u8) > 0x7f);
         self.a = res as u8;
     }
     pub fn sbc(&mut self, oper: u8) {
@@ -27,7 +30,9 @@ impl Registers {
 
         self.sr.update_nz(res as u8);
         self.sr.c = res < 0xff;
-        self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+        // self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);
+        self.sr.v = (res > 0x7f) != ((res as u8) > 0x7f);
+        // self.sr.v = sign(self.a) != sign(res as u8);
 
         self.a = res as u8;
     }
@@ -85,6 +90,11 @@ impl Registers {
         let res = (v << 1) | oldc;
         self.sr.update_nz(res);
         res
+    }
+    pub fn bit(&mut self, v: u8) {
+        self.sr.n = (v & 0b1000000) != 0;
+        self.sr.v = (v & 0b100000) != 0;
+        self.sr.z = (self.a & v) == 0;
     }
 }
 impl Default for Registers {
