@@ -57,7 +57,7 @@ impl Dbg for DumpScreen {
     fn step(&mut self, stdout: &mut RawTerminal<Stdout>, reg: &Registers, mem: &Memory) -> bool {
         if self.trigger_pc != 0 && reg.pc == self.trigger_pc {
             let mut offs = 0x200u16;
-            write!(stdout, "{}", termion::clear::All,);
+            write!(stdout, "{}{}", termion::clear::All, termion::cursor::Hide);
             for y in 0..32 {
                 write!(stdout, "{}", termion::cursor::Goto(1, y + 1));
                 for _x in 0..32 {
@@ -68,7 +68,7 @@ impl Dbg for DumpScreen {
                 println!();
             }
             println!("PC={:x}", reg.pc);
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
         false
     }
