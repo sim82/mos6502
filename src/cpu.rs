@@ -1,20 +1,28 @@
-use std::collections::HashSet;
+use std::{any::Any, collections::HashSet};
 
 use crate::{hexdump, mem::Memory, reg::Registers};
 use log::{debug, info};
 
-#[derive(Default)]
 pub struct Dbg {
-    pc_trace: HashSet<u16>,
+    pc_trace: [u8; 0xffff],
+}
+
+impl Default for Dbg {
+    fn default() -> Self {
+        Self {
+            pc_trace: [0u8; 0xffff],
+        }
+    }
 }
 
 impl Dbg {
     pub fn step(&mut self, reg: &Registers, mem: &Memory) -> bool {
-        if !self.pc_trace.insert(reg.pc) {
-            info!("cycle");
-            return true;
+        self.pc_trace[reg.pc as usize] += 1;
+        if self.pc_trace[reg.pc as usize] > 2 {
+            println!("cycle");
+            true
         } else {
-            return false;
+            false
         }
     }
 }
@@ -46,16 +54,9 @@ impl Cpu {
 impl Cpu {
     fn dispatch_opcode(&mut self, opc: u8) -> Option<i32> {
         let (_, size) = match opc {
-            0x18 => {
-                debug!("CLC");
-                self.reg.sr.c = false;
-                // reg.sr = reg.sr & !FL_C;
-                ((), 1)
-            }
             0x20 => {
                 let ret = self.reg.pc + 2;
-                self.mem.store16(self.reg.sp as u16 + 0x100, ret);
-                self.reg.sp -= 2;
+                self.push_stack16(ret);
                 self.reg.pc = self.mem.load16(self.reg.pc + 1);
                 debug!("JSR -> {:x} {:x}", self.reg.pc, ret);
                 // 0
@@ -82,8 +83,7 @@ impl Cpu {
                 ((), 0)
             }
             0x60 => {
-                self.reg.sp += 2;
-                self.reg.pc = self.mem.load16(self.reg.sp as u16 + 0x100);
+                self.reg.pc = self.pop_stack16();
                 debug!("RTS -> {:x}", self.reg.pc);
                 ((), 1)
             }
@@ -712,6 +712,64 @@ impl Cpu {
                 self.reg.y = res as u8;
                 ((), 1)
             }
+            // CLC
+            0x18 => {
+                self.reg.sr.c = false;
+                ((), 1)
+            }
+            // SEC
+            0x38 => {
+                self.reg.sr.c = true;
+                ((), 1)
+            }
+            // CLV
+            0xb8 => {
+                self.reg.sr.v = false;
+                ((), 1)
+            }
+            // PHP
+            0x08 => (self.push_stack(self.reg.sr.to_u8()), 1),
+            // PLP
+            0x28 => {
+                let v = self.pop_stack();
+                (self.reg.sr.set_from_u8(v), 1)
+            }
+            // PHA
+            0x48 => (self.push_stack(self.reg.a), 1),
+            // PLA
+            0x68 => {
+                self.reg.a = self.pop_stack();
+                self.reg.sr.update_nz(self.reg.a);
+                ((), 1)
+            }
+            // RTI
+            0x40 => {
+                let v = self.pop_stack();
+                self.reg.sr.set_from_u8(v);
+                self.reg.pc = self.pop_stack16();
+                debug!("RTI: SR={} PC={:x}", self.reg.sr, self.reg.pc);
+                ((), 0)
+            }
+            // SEI
+            0x78 => {
+                self.reg.sr.i = true;
+                ((), 1)
+            }
+            // CLI
+            0x58 => {
+                self.reg.sr.i = false;
+                ((), 1)
+            }
+            // SED
+            0xf8 => {
+                self.reg.sr.d = true;
+                ((), 1)
+            }
+            // CLD
+            0xd8 => {
+                self.reg.sr.d = false;
+                ((), 1)
+            }
             // NOP
             0xea => ((), 1),
             0 => {
@@ -723,6 +781,27 @@ impl Cpu {
         Some(size)
     }
 
+    fn pop_stack16(&mut self) -> u16 {
+        let ret = self.mem.load16(self.reg.sp as u16 + 0x100);
+        self.reg.sp += 2;
+        ret
+    }
+
+    fn push_stack16(&mut self, ret: u16) {
+        self.reg.sp -= 2;
+        self.mem.store16(self.reg.sp as u16 + 0x100, ret);
+    }
+
+    fn pop_stack(&mut self) -> u8 {
+        let ret = self.mem.load(self.reg.sp as u16 + 0x100);
+        self.reg.sp += 1;
+        ret
+    }
+
+    fn push_stack(&mut self, ret: u8) {
+        self.reg.sp -= 1;
+        self.mem.store(self.reg.sp as u16 + 0x100, ret);
+    }
     fn branch_relative(&mut self) {
         let offs = self.mem.load(self.reg.pc + 1) as i8;
         self.reg.pc = self.reg.pc.wrapping_add_signed(offs.into());

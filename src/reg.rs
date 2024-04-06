@@ -165,6 +165,40 @@ impl StatusRegister {
             0
         }
     }
+
+    pub fn to_u8(&self) -> u8 {
+        let mut ret = 0b100000u8; // compatibility with easy 6502 emulator
+        if self.c {
+            ret |= 0b1;
+        }
+        if self.z {
+            ret |= 0b10;
+        }
+        if self.i {
+            ret |= 0b100;
+        }
+        if self.d {
+            ret |= 0b1000;
+        }
+        if self.b {
+            ret |= 0b10000;
+        }
+        if self.v {
+            ret |= 0b1000000;
+        }
+        if self.n {
+            ret |= 0b10000000;
+        }
+        ret
+    }
+    pub fn set_from_u8(&mut self, v: u8) {
+        self.c = (v & 0b1) != 0;
+        self.z = (v & 0b10) != 0;
+        self.i = (v & 0b100) != 0;
+        self.d = (v & 0b1000) != 0;
+        self.v = (v & 0b1000000) != 0;
+        self.n = (v & 0b10000000) != 0;
+    }
 }
 impl std::fmt::Display for StatusRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
