@@ -8,5 +8,7 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
+rand = "0.8.5"
 simple-logging = "2.0.2"
+termion = "3.0.0"
 # env_logger = "*"

@@ -14,7 +14,7 @@ impl Registers {
     pub fn adc(&mut self, oper: u8) {
         let res = self.a as u16 + oper as u16 + self.sr.carry();
 
-        println!("adc: {:x} {:x} {:x}", self.a, oper, self.sr.carry());
+        // println!("adc: {:x} {:x} {:x}", self.a, oper, self.sr.carry());
         self.sr.update_nz(res as u8);
         self.sr.c = res > 0xff;
         // self.sr.v = sign(self.a) != sign(oper) && sign(self.a) != sign(res as u8);

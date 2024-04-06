@@ -4,7 +4,7 @@ use mos6502::{cpu::Cpu, mem::Memory};
 
 fn main() {
     // env_logger::init();
-    simple_logging::log_to(std::io::stdout(), log::LevelFilter::Debug);
+    simple_logging::log_to(std::io::stdout(), log::LevelFilter::Info);
     info!("test");
     // let mem = Memory::new(hexdump::read());
     // let mem = Memory::new(hexdump::read_bin(
@@ -12,10 +12,17 @@ fn main() {
     //     0xfff0,
     // ));
 
-    let mem = Memory::new(hexdump::read_bin("6502-test-code/AllSuiteA.bin", 0x4000));
+    // let start = 0x4000u16;
+    // let ram = hexdump::read_bin("6502-test-code/AllSuiteA.bin", start.into());
+    let start = 0x600u16;
+    let ram = hexdump::read_txt("asm/snake.txt");
+    // let mem = Memory::new(hexdump::read_bin("6502-test-code/AllSuiteA.bin", 0x4000));
+    // let start = 0x600;
+
+    let mem = Memory::new(ram);
     let mut cpu = Cpu::new(mem);
     // cpu.set_pc(0xfff0);
-    cpu.set_pc(0x4000);
+    cpu.set_pc(start);
 
     cpu.dump_mem();
     cpu.run();

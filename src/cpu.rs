@@ -1,22 +1,41 @@
-use std::{any::Any, collections::HashSet};
+use std::{
+    any::Any,
+    collections::HashSet,
+    io::{BufRead, Read, Stdout, Write},
+};
 
 use crate::{hexdump, mem::Memory, reg::Registers};
 use log::{debug, info};
+use rand::Rng;
+use termion::{
+    async_stdin,
+    event::Key,
+    input::TermRead,
+    raw::{IntoRawMode, RawTerminal},
+};
 
-pub struct Dbg {
+pub trait Dbg {
+    fn step(&mut self, stdout: &mut RawTerminal<Stdout>, reg: &Registers, mem: &Memory) -> bool;
+}
+pub struct CycleDetect {
+    cycle_detect: bool,
     pc_trace: [u8; 0xffff],
 }
 
-impl Default for Dbg {
+impl Default for CycleDetect {
     fn default() -> Self {
         Self {
+            cycle_detect: false,
             pc_trace: [0u8; 0xffff],
         }
     }
 }
 
-impl Dbg {
-    pub fn step(&mut self, reg: &Registers, mem: &Memory) -> bool {
+impl Dbg for CycleDetect {
+    fn step(&mut self, stdout: &mut RawTerminal<Stdout>, reg: &Registers, mem: &Memory) -> bool {
+        if !self.cycle_detect {
+            return false;
+        }
         self.pc_trace[reg.pc as usize] += 1;
         if self.pc_trace[reg.pc as usize] > 2 {
             println!("cycle");
@@ -26,11 +45,38 @@ impl Dbg {
         }
     }
 }
-#[derive(Default)]
+struct DumpScreen {
+    trigger_pc: u16,
+}
+impl Default for DumpScreen {
+    fn default() -> Self {
+        Self { trigger_pc: 0x734 }
+    }
+}
+impl Dbg for DumpScreen {
+    fn step(&mut self, stdout: &mut RawTerminal<Stdout>, reg: &Registers, mem: &Memory) -> bool {
+        if self.trigger_pc != 0 && reg.pc == self.trigger_pc {
+            let mut offs = 0x200u16;
+            write!(stdout, "{}", termion::clear::All,);
+            for y in 0..32 {
+                write!(stdout, "{}", termion::cursor::Goto(1, y + 1));
+                for _x in 0..32 {
+                    let pixel = mem.load(offs);
+                    offs += 1;
+                    print!("{}", if pixel == 0 { ' ' } else { 'X' });
+                }
+                println!();
+            }
+            println!("PC={:x}", reg.pc);
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        false
+    }
+}
 pub struct Cpu {
     reg: Registers,
     mem: Memory,
-    dbg: Dbg,
+    dbg: Box<dyn Dbg>,
 }
 
 impl Cpu {
@@ -38,7 +84,8 @@ impl Cpu {
         Self {
             mem,
             reg: Registers::default(),
-            dbg: Dbg::default(),
+            dbg: Box::new(DumpScreen::default()),
+            // dbg: Box::new(CycleDetect::default()),
         }
     }
     pub fn set_pc(&mut self, pc: u16) {
@@ -941,8 +988,24 @@ impl Cpu {
     pub fn run(&mut self) {
         // let reg = &mut self.reg;
         // let mem = &mut self.mem;
+        let mut rng = rand::thread_rng();
+        let stdin = std::io::stdin();
+        let mut stdout = std::io::stdout().into_raw_mode().unwrap();
+        let mut keys = async_stdin().bytes();
+        // stdout.flush().unwrap();
         loop {
-            if self.dbg.step(&self.reg, &self.mem) {
+            // rng.gen()
+            loop {
+                let Some(key) = keys.next() else { break };
+
+                println!("key: {:?}", key);
+                match key.unwrap() {
+                    c if c.is_ascii() => self.mem.store(0xff, c as u8),
+                    _ => (),
+                }
+            }
+            self.mem.store(0xfe, rng.gen());
+            if self.dbg.step(&mut stdout, &self.reg, &self.mem) {
                 info!("break");
                 break;
             }
