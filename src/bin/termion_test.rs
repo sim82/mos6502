@@ -1,11 +1,11 @@
-use std::io::{stdin, stdout, Write};
+use std::io::{stdin, stdout};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 fn main() {
     let stdin = stdin();
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut _stdout = stdout().into_raw_mode().unwrap();
 
     // write!(
     //     stdout,

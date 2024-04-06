@@ -7,9 +7,6 @@ pub struct Registers {
     pub y: u8,
 }
 
-fn sign(v: u8) -> bool {
-    v > 0x7f
-}
 impl Registers {
     pub fn adc(&mut self, oper: u8) {
         let res = self.a as u16 + oper as u16 + self.sr.carry();

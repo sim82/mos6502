@@ -1,7 +1,16 @@
 use log::info;
+use mos6502::dbg::{CycleDetect, Dbg, DumpScreen};
 use mos6502::hexdump;
+use mos6502::reg::Registers;
 use mos6502::{cpu::Cpu, mem::Memory};
 
+struct DbgNop;
+
+impl Dbg for DbgNop {
+    fn step(&mut self, _reg: &mut Registers, _mem: &mut Memory) -> bool {
+        false
+    }
+}
 fn main() {
     // env_logger::init();
     simple_logging::log_to(std::io::stdout(), log::LevelFilter::Info);
@@ -25,8 +34,16 @@ fn main() {
     cpu.set_pc(start);
 
     cpu.dump_mem();
-    cpu.run();
-
+    {
+        let mut dbg: Box<dyn Dbg> = if true {
+            Box::new(DumpScreen::default())
+        } else if false {
+            Box::new(CycleDetect::default())
+        } else {
+            Box::new(DbgNop)
+        };
+        cpu.run(&mut *dbg);
+    }
     // println!("data: {:?}", data);
     cpu.dump_mem();
 }
