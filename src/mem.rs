@@ -32,6 +32,9 @@ impl Memory {
     }
     pub fn store(&mut self, addr: u16, v: u8) {
         debug!("mem STORE: {:x} {:x}", addr, v);
+        // if addr == 0xd012 {
+        //     println!("store to 0xd012: {:x}", v);
+        // }
         self.ram[addr as usize] = v;
     }
     pub fn store16(&mut self, addr: u16, v: u16) {

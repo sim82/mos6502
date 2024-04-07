@@ -1,6 +1,5 @@
 use crate::{dbg::Dbg, hexdump, mem::Memory, reg::Registers};
 use log::{debug, info};
-use rand::Rng;
 
 pub struct Cpu {
     reg: Registers,
@@ -915,11 +914,9 @@ impl Cpu {
     pub fn run(&mut self, dbg: &mut dyn Dbg) {
         // let reg = &mut self.reg;
         // let mem = &mut self.mem;
-        let mut rng = rand::thread_rng();
         // stdout.flush().unwrap();
         loop {
             // rng.gen()
-            self.mem.store(0xfe, rng.gen());
             if dbg.step(&mut self.reg, &mut self.mem) {
                 info!("break");
                 break;
